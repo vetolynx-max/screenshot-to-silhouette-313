@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import type { Offer } from "@/lib/offers";
+import { hasCoords, formatRemun, type Offer } from "@/lib/offers";
 
 type Props = {
   offers: Offer[];
@@ -21,10 +21,11 @@ function icon(o: Offer, active: boolean) {
 function popupHtml(o: Offer) {
   const esc = (s: string) => s.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
   return `<div style="min-width:200px">
-    <div style="font-size:11px;font-weight:700;opacity:.7;text-transform:uppercase">${esc(o.metier)} · ${esc(o.specialite)}</div>
+    <div style="font-size:11px;font-weight:700;opacity:.7;text-transform:uppercase">${esc(o.profession)} · ${esc(o.specialite)}</div>
     <div style="font-weight:700;margin:2px 0 4px">${esc(o.titre)}</div>
-    <div>${esc(o.ville)} (${esc(o.departement)}) · ${esc(o.contrat)} · ${esc(o.temps)}</div>
-    ${o.salaire ? `<div style="font-weight:600;margin-top:4px">${esc(o.salaire)}</div>` : ""}
+    <div>${esc(o.clinique)}</div>
+    <div>${esc(o.ville)} (${esc(o.departement)}) · ${esc(o.contrat)} · ${o.tempsPlein ? "Temps plein" : "Temps partiel"}</div>
+    ${formatRemun(o.remun) ? `<div style="font-weight:600;margin-top:4px">${esc(formatRemun(o.remun)!)}</div>` : ""}
     <div style="font-size:11px;opacity:.6;margin-top:6px">Annonce de démonstration</div>
   </div>`;
 }
@@ -67,24 +68,31 @@ export default function OffersMap({ offers, selectedId, onSelect }: Props) {
     if (!m) return;
     markers.current.forEach((mk) => mk.remove());
     markers.current.clear();
-    offers.forEach((o) => {
+    const located = offers.filter(hasCoords);
+    located.forEach((o) => {
       const mk = L.marker([o.lat, o.lng], { icon: icon(o, o.id === selectedId), title: o.titre })
         .bindPopup(popupHtml(o))
         .on("click", () => onSelectRef.current(o.id))
         .addTo(m);
       markers.current.set(o.id, mk);
     });
+    if (located.length > 0) {
+      m.fitBounds(L.latLngBounds(located.map((o) => [o.lat, o.lng] as [number, number])), { padding: [40, 40], maxZoom: 9 });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [offers]);
 
   useEffect(() => {
     const m = map.current;
     if (!m) return;
-    offers.forEach((o) => markers.current.get(o.id)?.setIcon(icon(o, o.id === selectedId)));
+    offers.forEach((o) => {
+      const mk = markers.current.get(o.id);
+      mk?.setIcon(icon(o, o.id === selectedId));
+      mk?.setZIndexOffset(o.id === selectedId ? 1000 : 0);
+    });
     const mk = selectedId ? markers.current.get(selectedId) : null;
     if (mk) {
-      mk.setZIndexOffset(1000);
-      m.panTo(mk.getLatLng(), { animate: true });
+      if (!m.getBounds().pad(-0.1).contains(mk.getLatLng())) m.panTo(mk.getLatLng(), { animate: true });
       mk.openPopup();
     }
   }, [selectedId, offers]);
@@ -98,7 +106,7 @@ export default function OffersMap({ offers, selectedId, onSelect }: Props) {
         </div>
       )}
       <div className="absolute right-3 top-3 z-[1000] rounded-md bg-card px-2 py-1 text-xs font-bold text-foreground shadow-card">
-        {offers.length}/{offers.length}
+        {offers.filter(hasCoords).length} sur la carte
       </div>
     </div>
   );
