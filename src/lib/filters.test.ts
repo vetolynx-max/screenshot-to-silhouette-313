@@ -15,7 +15,7 @@ describe("filtres du catalogue", () => {
   it("rémunération ≥ 50k exclut les offres sans salaire et au jour", () => expect(ids({ remunMin: "50" })).toEqual(["1", "2", "6", "10"]));
   it("prise de poste avant le 31/12/2026", () => expect(ids({ debutAvant: "2026-12-31" })).toEqual(["1", "3", "7", "9"]));
   it("coordonnées invalides : pas de marqueur", () => {
-    expect(hasCoords({ ...DEMO_OFFERS[0], lat: null })).toBe(false);
-    expect(hasCoords({ ...DEMO_OFFERS[0], lat: 120 })).toBe(false);
+    expect(hasCoords({ ...DEMO_OFFERS[0]!, lat: null })).toBe(false);
+    expect(hasCoords({ ...DEMO_OFFERS[0]!, lat: 120 })).toBe(false);
   });
 });
